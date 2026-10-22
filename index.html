@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ku" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دروستکەرا پرۆمپتێن سکێچ</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .card {
+            background-color: #1e1e1e;
+            padding: 22px;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            max-width: 480px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #333;
+        }
+
+        h2 {
+            margin: 0 0 8px 0;
+            color: #f1f5f9;
+            font-size: 20px;
+            text-align: center;
+        }
+
+        p {
+            font-size: 13px;
+            color: #94a3b8;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 95px;
+            background-color: #2a2a2a;
+            border: 1.5px solid #444;
+            color: #fff;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            resize: none;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: #38bdf8;
+        }
+
+        button.gen-btn {
+            width: 100%;
+            margin-top: 12px;
+            padding: 13px;
+            background: linear-gradient(135deg, #38bdf8, #2563eb);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        button.gen-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* بەشێ نیشاندانا پرۆمپتی */
+        .result-box {
+            margin-top: 20px;
+            background-color: #262626;
+            border: 1px solid #3b82f6;
+            border-radius: 10px;
+            padding: 14px;
+            display: none;
+            text-align: left;
+            direction: ltr; /* ژبەرکو پرۆمپت ب ئینگلیزی یە */
+        }
+
+        .prompt-text {
+            color: #e2e8f0;
+            font-size: 13px;
+            line-height: 1.6;
+            font-family: monospace;
+            white-space: pre-wrap;
+            margin-bottom: 12px;
+        }
+
+        .copy-btn {
+            background-color: #22c55e;
+            color: #000;
+            font-weight: bold;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 14px;
+            direction: rtl;
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            margin-top: 15px;
+            color: #38bdf8;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>دروستکەرا پڕۆمپتێن سکێچێ 🎨</h2>
+        <p>ڕستەیەکێ بنڤیسە، AI دێ پڕۆمپتەکێ شێوازێ تیکتۆکێ بۆ ئامادە کەت:</p>
+        
+        <textarea id="quoteText" placeholder="بۆ نموونە: بەری تو هێڤیا کەسەکی ژ ناڤ ببەی، بیر ل وی بکە کو..."></textarea>
+        
+        <button class="gen-btn" id="submitBtn" onclick="createSketchPrompt()">پڕۆمپتێ سکێچێ چێکە</button>
+
+        <div id="loading">Gemini یێ مانایا ڕستێ دکەتە تابلۆ... ⏳</div>
+
+        <div class="result-box" id="resultBox">
+            <div class="prompt-text" id="finalPrompt"></div>
+            <button class="copy-btn" onclick="copyPrompt()">📋 پرۆمپتی کۆپی بکە</button>
+        </div>
+    </div>
+
+    <script>
+        const GEMINI_API_KEY = "AQ.Ab8RN6IpHUIPHaJGz93KLxesyNnVI2Y-FL3LO_qFiPPxO_oupg";
+        const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+
+        async function createSketchPrompt() {
+            const quote = document.getElementById("quoteText").value.trim();
+            const btn = document.getElementById("submitBtn");
+            const loading = document.getElementById("loading");
+            const resultBox = document.getElementById("resultBox");
+            const finalPrompt = document.getElementById("finalPrompt");
+
+            if (!quote) {
+                alert("تکایە پێشتر ڕستەکێ بنڤیسە!");
+                return;
+            }
+
+            btn.disabled = true;
+            loading.style.display = "block";
+            resultBox.style.display = "none";
+
+            // فەرمانا زێڕین بو Gemini دا پڕۆمپتێ ب هەمان ستایلێ وێنەیێ تە دروست بکەت
+            const systemInstruction = `You are an expert AI art prompt creator for viral quote videos.
+The user will give you a quote/saying in Kurdish: "${quote}".
+
+YOUR GOAL:
+1. Understand the visual and emotional metaphor behind the quote (e.g. if it talks about hope and not giving up, imagine someone holding onto a cliff/rope).
+2. Create ONE detailed English prompt for an AI image generator (like Gemini, Midjourney, Bing Image Creator).
+3. The visual style MUST match this layout:
+   - Charcoal / pencil sketch drawing on vintage old paper texture background.
+   - Composition: The drawing MUST be small and located ONLY at the bottom 25-30% of the image.
+   - The top 70-75% of the canvas MUST be completely empty, blank vintage paper space with no drawings, designed specifically for placing text quotes.
+4. Output ONLY the English prompt. Do not write explanations, greetings, or intro text.`;
+
+            try {
+                const response = await fetch(GEMINI_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: systemInstruction }] }]
+                    })
+                });
+
+                const data = await response.json();
+                const generatedPrompt = data.candidates[0].content.parts[0].text.trim();
+
+                finalPrompt.innerText = generatedPrompt;
+                resultBox.style.display = "block";
+
+            } catch (err) {
+                console.error(err);
+                alert("ئاریشەیەک چێبوو د پێگەهشتنا Gemini دا! ئینتەرنێتا خۆ بپشکنە.");
+            } finally {
+                btn.disabled = false;
+                loading.style.display = "none";
+            }
+        }
+
+        function copyPrompt() {
+            const text = document.getElementById("finalPrompt").innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("پڕۆمپت ب سەرکەفتیانە هاتە کۆپیکردن! ✅\nنوکە پەیست بکە د جێمنی دا.");
+            });
+        }
+    </script>
+</body>
+</html>
